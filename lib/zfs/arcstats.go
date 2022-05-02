@@ -14,7 +14,7 @@ type ArcStats struct {
 type Row struct {
 	Name  string
 	Type  int64
-	Value int64
+	Value uint64
 }
 
 func (a *ArcStats) Get(name string) *Row {
@@ -64,7 +64,7 @@ func ParseArcStats(r io.Reader) (*ArcStats, error) {
 			continue
 		}
 
-		row.Value, err = strconv.ParseInt(s, 10, 64)
+		row.Value, err = strconv.ParseUint(s, 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("malformed value. s: %s, err: %w", s, err)
 		}

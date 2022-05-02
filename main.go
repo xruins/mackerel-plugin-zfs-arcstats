@@ -10,7 +10,7 @@ import (
 )
 
 var graphdef map[string]mp.Graphs = map[string]mp.Graphs{
-	"zfs.arcstats": {
+	"arcstats": {
 		Label: "ARC Hits/Misses",
 		Unit:  "integer",
 		Metrics: []mp.Metrics{
@@ -23,7 +23,13 @@ var graphdef map[string]mp.Graphs = map[string]mp.Graphs{
 }
 
 type ZFSArcStatsPlugin struct {
-	file string
+	file     string
+	prefix   string
+	enableL2 bool
+}
+
+func (m *ZFSArcStatsPlugin) MetricKeyPrefix() string {
+	return m.prefix
 }
 
 func (m *ZFSArcStatsPlugin) FetchMetrics() (map[string]float64, error) {
@@ -38,12 +44,16 @@ func (m *ZFSArcStatsPlugin) FetchMetrics() (map[string]float64, error) {
 		log.Fatalf("failed to parse ZFS arcstats. err: %s", err)
 	}
 
-	fields := []string{"hits", "misses", "l2_hits", "l2_misses"}
+	fields := []string{"hits", "misses"}
+	if m.enableL2 {
+		fields = append(fields, "l2_hits", "l2_misses")
+	}
 	ret := make(map[string]float64, len(fields))
 	for _, f := range fields {
 		row := stats.Get(f)
 		ret[f] = float64(row.Value)
 	}
+
 	return ret, nil
 }
 
@@ -52,12 +62,18 @@ func (m *ZFSArcStatsPlugin) GraphDefinition() map[string]mp.Graphs {
 }
 
 func main() {
-	optFile := flag.String("f", "/proc/spl/kstat/zfs/arcstats", "path to the file of ZFS arcstats")
+	optFile := flag.String("f", "/proc/spl/kstat/zfs/arcstats", "Path to the file of ZFS arcstats")
+	optTempfile := flag.String("tempfile", "", "Tempfile name")
+	optMetricKeyPrefix := flag.String("metric-key-prefix", "zfs", "Metric Key Prefix")
+	optEnableL2Metrics := flag.Bool("enable-l2-metrics", false, "enable metrics for L2ARC")
 	flag.Parse()
 
 	p := &ZFSArcStatsPlugin{
-		file: *optFile,
+		file:     *optFile,
+		prefix:   *optMetricKeyPrefix,
+		enableL2: *optEnableL2Metrics,
 	}
 	h := mp.NewMackerelPlugin(p)
+	h.Tempfile = *optTempfile
 	h.Run()
 }
